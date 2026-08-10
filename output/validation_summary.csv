@@ -1,0 +1,9 @@
+change_id,system,environment,status,risk_score,risk_level,framework_impact,recommended_action
+CHG-001,Payment API,PRODUCTION,PASS,0,LOW,PCI DSS 4.0.1 - Requirement 6.5.1,No action required. Change is fully compliant.
+CHG-002,Core Banking,PRODUCTION,FAIL,100,CRITICAL,PCI DSS 4.0.1 - Requirement 6.5.1,Reject change. Enforce segregation of duties (SoD) by requiring an independent approver.
+CHG-003,Customer Portal,PRODUCTION,FAIL,100,CRITICAL,PCI DSS 4.0.1 - Requirement 6.5.1,Reject change. Approver lacks formal delegation of authority for production changes.
+CHG-004,Mobile Banking,PRODUCTION,FAIL,100,CRITICAL,PCI DSS 4.0.1 - Requirement 6.5.1,Initiate post-implementation review and enforce pre-deployment gate in CI/CD pipeline.
+CHG-005,Pix Gateway,PRODUCTION,FAIL,60,HIGH,PCI DSS 4.0.1 - Requirement 6.5.1,Request re-upload of integrity-verified evidence artifact (SHA-256).
+CHG-006,Fraud Engine,PRODUCTION,FAIL,80,CRITICAL,PCI DSS 4.0.1 - Requirement 6.5.1,Require immediate retroactive documentation and management sign-off for emergency change.
+CHG-007,Dev Sandbox,DEVELOPMENT,NOT_APPLICABLE,0,LOW,,Control not applicable outside production environment.
+CHG-008,Legacy System,PRODUCTION,NOT_APPLICABLE,0,LOW,,Change status is CANCELLED; evaluation bypassed.

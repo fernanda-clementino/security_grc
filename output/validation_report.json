@@ -1,0 +1,140 @@
+{
+  "control": {
+    "id": "CHG-001",
+    "name": "Independent Production Change Approval",
+    "framework": "PCI DSS 4.0.1",
+    "requirement": "6.5.1",
+    "description": "Production changes must follow documented change control procedures including authorization by authorized parties."
+  },
+  "summary": {
+    "total": 8,
+    "pass": 1,
+    "fail": 5,
+    "exception": 0,
+    "pass_with_findings": 0,
+    "not_applicable": 2
+  },
+  "results": [
+    {
+      "change_id": "CHG-001",
+      "system": "Payment API",
+      "environment": "PRODUCTION",
+      "status": "PASS",
+      "risk_score": 0,
+      "risk_level": "LOW",
+      "framework_impact": "PCI DSS 4.0.1 - Requirement 6.5.1",
+      "recommended_action": "No action required. Change is fully compliant.",
+      "findings": []
+    },
+    {
+      "change_id": "CHG-002",
+      "system": "Core Banking",
+      "environment": "PRODUCTION",
+      "status": "FAIL",
+      "risk_score": 100,
+      "risk_level": "CRITICAL",
+      "framework_impact": "PCI DSS 4.0.1 - Requirement 6.5.1",
+      "recommended_action": "Reject change. Enforce segregation of duties (SoD) by requiring an independent approver.",
+      "findings": [
+        {
+          "type": "SELF_APPROVAL",
+          "severity": "HIGH",
+          "message": "Implementer and approver are the same individual (SoD violation)."
+        }
+      ]
+    },
+    {
+      "change_id": "CHG-003",
+      "system": "Customer Portal",
+      "environment": "PRODUCTION",
+      "status": "FAIL",
+      "risk_score": 100,
+      "risk_level": "CRITICAL",
+      "framework_impact": "PCI DSS 4.0.1 - Requirement 6.5.1",
+      "recommended_action": "Reject change. Approver lacks formal delegation of authority for production changes.",
+      "findings": [
+        {
+          "type": "UNAUTHORIZED_APPROVER",
+          "severity": "HIGH",
+          "message": "Approver is not listed in the authorized delegation matrix."
+        }
+      ]
+    },
+    {
+      "change_id": "CHG-004",
+      "system": "Mobile Banking",
+      "environment": "PRODUCTION",
+      "status": "FAIL",
+      "risk_score": 100,
+      "risk_level": "CRITICAL",
+      "framework_impact": "PCI DSS 4.0.1 - Requirement 6.5.1",
+      "recommended_action": "Initiate post-implementation review and enforce pre-deployment gate in CI/CD pipeline.",
+      "findings": [
+        {
+          "type": "APPROVAL_AFTER_IMPLEMENTATION",
+          "severity": "HIGH",
+          "message": "Change was implemented before formal approval timestamp."
+        }
+      ]
+    },
+    {
+      "change_id": "CHG-005",
+      "system": "Pix Gateway",
+      "environment": "PRODUCTION",
+      "status": "FAIL",
+      "risk_score": 60,
+      "risk_level": "HIGH",
+      "framework_impact": "PCI DSS 4.0.1 - Requirement 6.5.1",
+      "recommended_action": "Request re-upload of integrity-verified evidence artifact (SHA-256).",
+      "findings": [
+        {
+          "type": "INVALID_EVIDENCE_HASH",
+          "severity": "HIGH",
+          "message": "Evidence hash format is invalid (expected 64-char SHA-256 hex)."
+        },
+        {
+          "type": "STALE_EVIDENCE",
+          "severity": "MEDIUM",
+          "message": "Evidence is 130 days old (exceeds 90-day validity window)."
+        }
+      ]
+    },
+    {
+      "change_id": "CHG-006",
+      "system": "Fraud Engine",
+      "environment": "PRODUCTION",
+      "status": "FAIL",
+      "risk_score": 80,
+      "risk_level": "CRITICAL",
+      "framework_impact": "PCI DSS 4.0.1 - Requirement 6.5.1",
+      "recommended_action": "Require immediate retroactive documentation and management sign-off for emergency change.",
+      "findings": [
+        {
+          "type": "EMERGENCY_MISSING_JUSTIFICATION",
+          "severity": "HIGH",
+          "message": "Emergency change lacks documented business justification."
+        }
+      ]
+    },
+    {
+      "change_id": "CHG-007",
+      "system": "Dev Sandbox",
+      "environment": "DEVELOPMENT",
+      "status": "NOT_APPLICABLE",
+      "risk_score": 0,
+      "risk_level": "LOW",
+      "findings": [],
+      "recommended_action": "Control not applicable outside production environment."
+    },
+    {
+      "change_id": "CHG-008",
+      "system": "Legacy System",
+      "environment": "PRODUCTION",
+      "status": "NOT_APPLICABLE",
+      "risk_score": 0,
+      "risk_level": "LOW",
+      "findings": [],
+      "recommended_action": "Change status is CANCELLED; evaluation bypassed."
+    }
+  ]
+}

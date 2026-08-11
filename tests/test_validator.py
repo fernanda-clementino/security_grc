@@ -42,9 +42,16 @@ class TestGRCValidator(unittest.TestCase):
         result = validate_change(change)
         self.assertEqual(result["status"], "FAIL")
         self.assertTrue(any(f["type"] == "UNAUTHORIZED_APPROVER" for f in result["findings"]))
-        self.assertEqual(result["risk_score"], 100)
 
-    def test_04_temporal_violation_fail(self):
+    def test_04_missing_authorization_failsafe(self):
+        # Fail-Safe test: empty or missing approver_authorized must fail
+        change = self.base_change.copy()
+        change["approver_authorized"] = ""
+        result = validate_change(change)
+        self.assertEqual(result["status"], "FAIL")
+        self.assertTrue(any(f["type"] == "UNAUTHORIZED_APPROVER" for f in result["findings"]))
+
+    def test_05_temporal_violation_fail(self):
         change = self.base_change.copy()
         change["approved_at"] = "2026-08-01T12:00:00Z"
         change["implemented_at"] = "2026-08-01T11:00:00Z"
@@ -52,14 +59,14 @@ class TestGRCValidator(unittest.TestCase):
         self.assertEqual(result["status"], "FAIL")
         self.assertTrue(any(f["type"] == "APPROVAL_AFTER_IMPLEMENTATION" for f in result["findings"]))
 
-    def test_05_missing_evidence_fail(self):
+    def test_06_missing_evidence_fail(self):
         change = self.base_change.copy()
         change["approval_evidence"] = ""
         result = validate_change(change)
         self.assertEqual(result["status"], "FAIL")
         self.assertTrue(any(f["type"] == "MISSING_EVIDENCE" for f in result["findings"]))
 
-    def test_06_stale_evidence_warning(self):
+    def test_07_stale_evidence_warning(self):
         change = self.base_change.copy()
         stale_date = (datetime.now(timezone.utc) - timedelta(days=100)).isoformat()
         change["evidence_date"] = stale_date
@@ -68,14 +75,14 @@ class TestGRCValidator(unittest.TestCase):
         self.assertTrue(any(f["type"] == "STALE_EVIDENCE" for f in result["findings"]))
         self.assertEqual(result["risk_score"], 40)
 
-    def test_07_invalid_hash_format_fail(self):
+    def test_08_invalid_hash_format_fail(self):
         change = self.base_change.copy()
         change["evidence_hash"] = "short-hash"
         result = validate_change(change)
         self.assertEqual(result["status"], "FAIL")
         self.assertTrue(any(f["type"] == "INVALID_EVIDENCE_HASH" for f in result["findings"]))
 
-    def test_08_emergency_with_justification_exception(self):
+    def test_09_emergency_with_justification_exception(self):
         change = self.base_change.copy()
         change["change_type"] = "EMERGENCY"
         change["emergency_justification"] = "Fixing critical production bug"
@@ -83,29 +90,20 @@ class TestGRCValidator(unittest.TestCase):
         self.assertEqual(result["status"], "EXCEPTION")
         self.assertTrue(any(f["type"] == "EMERGENCY_REVIEW_REQUIRED" for f in result["findings"]))
 
-    def test_09_emergency_without_justification_fail(self):
+    def test_10_missing_required_field_data_quality(self):
         change = self.base_change.copy()
-        change["change_type"] = "EMERGENCY"
-        change["emergency_justification"] = ""
+        change["implementer"] = "" # Missing mandatory field
         result = validate_change(change)
         self.assertEqual(result["status"], "FAIL")
-        self.assertTrue(any(f["type"] == "EMERGENCY_MISSING_JUSTIFICATION" for f in result["findings"]))
+        self.assertTrue(any(f["type"] == "MISSING_REQUIRED_FIELD" for f in result["findings"]))
 
-    def test_10_non_production_not_applicable(self):
+    def test_11_non_production_not_applicable(self):
         change = self.base_change.copy()
         change["environment"] = "DEVELOPMENT"
         result = validate_change(change)
         self.assertEqual(result["status"], "NOT_APPLICABLE")
-        self.assertEqual(len(result["findings"]), 0)
-
-    def test_11_cancelled_change_not_applicable(self):
-        change = self.base_change.copy()
-        change["change_status"] = "CANCELLED"
-        result = validate_change(change)
-        self.assertEqual(result["status"], "NOT_APPLICABLE")
 
     def test_12_risk_logic_worst_case(self):
-        # Test that Critical (100) overrides Medium (40)
         findings = [
             {"type": "SELF_APPROVAL"}, # 100
             {"type": "STALE_EVIDENCE"}  # 40

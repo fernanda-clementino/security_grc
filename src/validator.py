@@ -15,6 +15,7 @@ FRAMEWORK_DESCRIPTION = "Production changes must follow documented change contro
 STALE_DAYS = 90
 
 RISK_WEIGHTS = {
+    "MISSING_REQUIRED_FIELD": 100,
     "SELF_APPROVAL": 100,
     "UNAUTHORIZED_APPROVER": 100,
     "MISSING_APPROVAL": 100,
@@ -67,18 +68,20 @@ def get_recommended_action(findings):
     
     finding_types = [f["type"] for f in findings]
     
+    if "MISSING_REQUIRED_FIELD" in finding_types:
+        return "Reject change record. Data quality failure: mandatory metadata is missing."
     if "SELF_APPROVAL" in finding_types:
         return "Reject change. Enforce segregation of duties (SoD) by requiring an independent approver."
     if "UNAUTHORIZED_APPROVER" in finding_types:
-        return "Reject change. Approver lacks formal delegation of authority for production changes."
+        return "Reject change. Approver lacks formal delegation of authority or authorization status is unverified."
     if "MISSING_APPROVAL" in finding_types or "MISSING_EVIDENCE" in finding_types:
         return "Halt deployment. Obtain formal authorization and attach audit evidence before releasing to production."
     if "APPROVAL_AFTER_IMPLEMENTATION" in finding_types:
         return "Initiate post-implementation review and enforce pre-deployment gate in CI/CD pipeline."
     if "INVALID_EVIDENCE_HASH" in finding_types:
-        return "Request re-upload of integrity-verified evidence artifact (SHA-256)."
+        return "Request re-upload of integrity-verified evidence artifact (SHA-256 format check)."
     if "STALE_EVIDENCE" in finding_types:
-        return "Refresh approval documentation to comply with the 90-day validity window."
+        return "Refresh approval documentation to comply with the 90-day challenge validity window."
     if "EMERGENCY_MISSING_JUSTIFICATION" in finding_types:
         return "Require immediate retroactive documentation and management sign-off for emergency change."
     if "EMERGENCY_REVIEW_REQUIRED" in finding_types:
@@ -90,14 +93,39 @@ def get_recommended_action(findings):
 def validate_change(change):
     findings = []
     
-    environment = change.get("environment", "PRODUCTION").upper()
-    change_status = change.get("change_status", "IMPLEMENTED").upper()
+    environment = change.get("environment", "").strip().upper()
+    change_status = change.get("change_status", "").strip().upper()
+    change_id = change.get("change_id", "").strip()
+    system = change.get("system", "").strip()
     
+    # 0. Data Quality Check (Fail-Safe mandatory fields)
+    mandatory_fields = ["change_id", "system", "environment", "change_status", "implementer"]
+    missing_fields = [field for field in mandatory_fields if not change.get(field, "").strip()]
+    
+    if missing_fields:
+        findings.append({
+            "type": "MISSING_REQUIRED_FIELD",
+            "severity": "HIGH",
+            "message": f"Data quality failure: mandatory fields missing: {', '.join(missing_fields)}"
+        })
+        risk_score, risk_level = calculate_risk(findings)
+        return {
+            "change_id": change_id or "UNKNOWN",
+            "system": system or "UNKNOWN",
+            "environment": environment or "UNKNOWN",
+            "status": "FAIL",
+            "risk_score": risk_score,
+            "risk_level": risk_level,
+            "framework_impact": f"{FRAMEWORK} - Requirement {FRAMEWORK_REQUIREMENT}",
+            "recommended_action": get_recommended_action(findings),
+            "findings": findings
+        }
+
     # Check applicability
     if environment != "PRODUCTION":
         return {
-            "change_id": change.get("change_id"),
-            "system": change.get("system"),
+            "change_id": change_id,
+            "system": system,
             "environment": environment,
             "status": "NOT_APPLICABLE",
             "risk_score": 0,
@@ -108,8 +136,8 @@ def validate_change(change):
         
     if change_status in ["CANCELLED", "ABANDONED", "DRAFT"]:
         return {
-            "change_id": change.get("change_id"),
-            "system": change.get("system"),
+            "change_id": change_id,
+            "system": system,
             "environment": environment,
             "status": "NOT_APPLICABLE",
             "risk_score": 0,
@@ -124,7 +152,11 @@ def validate_change(change):
     evidence_hash = change.get("evidence_hash", "").strip()
     implementer = change.get("implementer", "").strip().lower()
     approver = change.get("approver", "").strip().lower()
-    approver_authorized = change.get("approver_authorized", "TRUE").upper() == "TRUE"
+    
+    # Fail-Safe: If approver_authorized is missing or not explicitly TRUE, consider unverified/unauthorized
+    approver_authorized_val = change.get("approver_authorized", "").strip().upper()
+    approver_authorized = (approver_authorized_val == "TRUE")
+    
     change_type = change.get("change_type", "STANDARD").upper()
     emergency_justification = change.get("emergency_justification", "").strip()
 
@@ -168,22 +200,22 @@ def validate_change(change):
             "message": "Implementer and approver are the same individual (SoD violation)."
         })
 
-    # 5. Approver Authorization check
+    # 5. Approver Authorization check (Fail-Safe enforcement)
     if approver and not approver_authorized:
         findings.append({
             "type": "UNAUTHORIZED_APPROVER",
             "severity": "HIGH",
-            "message": "Approver is not listed in the authorized delegation matrix."
+            "message": "Approver authorization is missing, unverified, or explicitly unauthorized."
         })
 
-    # 6. Evidence freshness check
+    # 6. Evidence freshness check (Challenge demonstration threshold)
     if evidence_date:
         age_days = (datetime.now(timezone.utc) - evidence_date).days
         if age_days > STALE_DAYS:
             findings.append({
                 "type": "STALE_EVIDENCE",
                 "severity": "MEDIUM",
-                "message": f"Evidence is {age_days} days old (exceeds {STALE_DAYS}-day validity window)."
+                "message": f"Evidence is {age_days} days old (exceeds challenge {STALE_DAYS}-day freshness window)."
             })
 
     # 7. Mandatory documentation check
@@ -221,8 +253,8 @@ def validate_change(change):
     recommended_action = get_recommended_action(findings)
 
     return {
-        "change_id": change.get("change_id"),
-        "system": change.get("system"),
+        "change_id": change_id,
+        "system": system,
         "environment": environment,
         "status": status,
         "risk_score": risk_score,
@@ -276,7 +308,7 @@ def generate_markdown_report(report, output_path):
     lines.extend([
         f"",
         f"---",
-        f"*Report generated automatically by Security GRC Change Management Validator.*"
+        f"*Report generated automatically by Security GRC Change Management Validator (CCM Prototype).*"
     ])
 
     with open(output_path, "w", encoding="utf-8") as file:
